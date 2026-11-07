@@ -1,0 +1,51 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # твой репозиторий (папка game/ с main.lua)
+      - uses: actions/checkout@v4
+
+      # исходники love-android
+      - uses: actions/checkout@v4
+        with:
+          repository: love2d/love-android
+          ref: 11.5a
+          submodules: recursive
+          path: love-android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Embed game
+        run: |
+          mkdir -p love-android/app/src/embed/assets
+          cp -r game/* love-android/app/src/embed/assets/
+
+      - name: Replace icon
+        run: |
+          find love-android/app/src -name "love.png" -exec cp icon.png {} \;
+
+      - name: Set app name and package
+        run: |
+          cd love-android
+          sed -i 's/^app.name=.*/app.name=City Game/' gradle.properties
+          sed -i 's/^app.application_id=.*/app.application_id=com.example.citygame/' gradle.properties
+
+      - name: Build debug APK
+        run: |
+          cd love-android
+          chmod +x gradlew
+          ./gradlew assembleEmbedNoRecordDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: citygame-apk
+          path: love-android/app/build/outputs/apk/embedNoRecord/debug/*.apk
